@@ -1,6 +1,4 @@
 # CHC-NFT-Mint
-# ChillBadge NFT Mint
-
 Mint your exclusive ChillBadge NFT using ChillingCoin (CHC).
 
 - 🔥 Each mint burns 5 million CHC
