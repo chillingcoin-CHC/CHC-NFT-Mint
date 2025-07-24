@@ -1,89 +1,144 @@
-const CHC_ADDRESS = "0xa5E6F40Bd1D16d21Aeb5e89AEE50f307fc4eA0b3";
-const NFT_CONTRACT = "0x33EC7B370Ca70d3f7CbE6a03F72854ff2Ba9328f";
+// ==== CONFIGURATION ====
+const CHC_TOKEN_ADDRESS = "0xc50e66bca472da61d0184121e491609b774e2c37";
+const NFT_CONTRACT_ADDRESS = "0x33EC7B370Ca70d3f7CbE6a03F72854ff2Ba9328f";
+const BURN_AMOUNT = Web3.utils.toWei("5000000", "ether"); // 5M CHC per mint
 
-const CHC_ABI = [
-  "function approve(address spender, uint amount) public returns (bool)",
-  "function balanceOf(address owner) view returns (uint)"
+// ==== WEB3MODAL SETUP ====
+let web3, provider, selectedAccount;
+const providerOptions = {
+  walletconnect: {
+    package: window.WalletConnectProvider.default,
+    options: {
+      rpc: {
+        56: "https://bsc-dataseed.binance.org/"
+      },
+      chainId: 56
+    }
+  }
+};
+const web3Modal = new window.Web3Modal.default({
+  cacheProvider: true,
+  providerOptions
+});
+
+// ==== ABIs ====
+const chcAbi = [ /* ✅ Full CHC Token ABI (Paste yours here) */
+  {
+    "constant": false,
+    "inputs": [
+      { "name": "_spender", "type": "address" },
+      { "name": "_value", "type": "uint256" }
+    ],
+    "name": "approve",
+    "outputs": [{ "name": "", "type": "bool" }],
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [{ "name": "_owner", "type": "address" }],
+    "name": "balanceOf",
+    "outputs": [{ "name": "balance", "type": "uint256" }],
+    "type": "function"
+  },
+  {
+    "constant": true,
+    "inputs": [
+      { "name": "_owner", "type": "address" },
+      { "name": "_spender", "type": "address" }
+    ],
+    "name": "allowance",
+    "outputs": [{ "name": "remaining", "type": "uint256" }],
+    "type": "function"
+  }
 ];
 
-const NFT_ABI = [
-  "function mint() public",
-  "function nextTokenId() view returns (uint256)"
+const nftAbi = [
+  {
+    "inputs": [],
+    "name": "mint",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  }
 ];
 
-let provider, signer, walletAddress;
-const pricePerNFT = ethers.utils.parseUnits("5000000", 18); // 5 million CHC
+// ==== UI HOOKS ====
+const connectBtn = document.getElementById("connectWallet");
+const mintBtn = document.getElementById("mintBtn");
+const amountInput = document.getElementById("mintAmount");
+const balanceSpan = document.getElementById("chcBalance");
+const mintedSpan = document.getElementById("mintedCount");
+const walletSpan = document.getElementById("walletAddress");
+const statusMsg = document.getElementById("statusMessage");
 
-// 🟢 Connect wallet
+// ==== CONNECT WALLET ====
 async function connectWallet() {
-  const web3Modal = new Web3Modal.default();
-  const instance = await web3Modal.connect();
-  provider = new ethers.providers.Web3Provider(instance);
-  signer = provider.getSigner();
-  walletAddress = await signer.getAddress();
-  await getCHCBalance();
-  await updateSupply();
+  try {
+    provider = await web3Modal.connect();
+    web3 = new Web3(provider);
+    const accounts = await web3.eth.getAccounts();
+    selectedAccount = accounts[0];
+    walletSpan.innerText = selectedAccount;
+
+    getCHCBalance();
+    getMintedCount();
+  } catch (err) {
+    console.error("Connection failed:", err);
+    statusMsg.innerText = "Wallet connection failed.";
+  }
 }
 
-// 🟢 Get CHC balance
+// ==== GET CHC BALANCE ====
 async function getCHCBalance() {
-  const chc = new ethers.Contract(CHC_ADDRESS, CHC_ABI, provider);
-  const balance = await chc.balanceOf(walletAddress);
-  document.getElementById("chcBalance").innerText = ethers.utils.formatUnits(balance, 18);
+  const token = new web3.eth.Contract(chcAbi, CHC_TOKEN_ADDRESS);
+  const balance = await token.methods.balanceOf(selectedAccount).call();
+  const formatted = Web3.utils.fromWei(balance, "ether");
+  balanceSpan.innerText = parseFloat(formatted).toLocaleString();
 }
 
-// 🟢 Update minted count
-async function updateSupply() {
-  const nft = new ethers.Contract(NFT_CONTRACT, NFT_ABI, provider);
-  const nextId = await nft.nextTokenId();
-  document.getElementById("mintedCount").innerText = (nextId.toNumber() - 1).toString();
+// ==== GET MINTED COUNT ====
+async function getMintedCount() {
+  try {
+    const nft = new web3.eth.Contract(nftAbi, NFT_CONTRACT_ADDRESS);
+    const total = await nft.methods.totalSupply().call();
+    mintedSpan.innerText = total;
+  } catch {
+    mintedSpan.innerText = "N/A";
+  }
 }
 
-// 🟢 Mint NFT(s)
-async function mintMultiple() {
-  const quantity = parseInt(document.getElementById("mintAmount").value);
-  if (quantity < 1 || quantity > 10) {
-    alert("Please enter a quantity between 1 and 10.");
+// ==== MINT NFTs ====
+async function mintNFTs() {
+  const quantity = parseInt(amountInput.value);
+  if (!quantity || quantity <= 0) {
+    statusMsg.innerText = "Enter a valid amount.";
     return;
   }
 
-  const totalPrice = pricePerNFT.mul(quantity);
-  const chc = new ethers.Contract(CHC_ADDRESS, CHC_ABI, signer);
-  const nft = new ethers.Contract(NFT_CONTRACT, NFT_ABI, signer);
+  const totalCost = Web3.utils.toBN(BURN_AMOUNT).muln(quantity);
+  const token = new web3.eth.Contract(chcAbi, CHC_TOKEN_ADDRESS);
+  const allowance = await token.methods.allowance(selectedAccount, NFT_CONTRACT_ADDRESS).call();
 
-  try {
-    const approveTx = await chc.approve(NFT_CONTRACT, totalPrice);
-    await approveTx.wait();
-
-    for (let i = 0; i < quantity; i++) {
-      const mintTx = await nft.mint();
-      await mintTx.wait();
-    }
-
-    showSuccessModal();
-    await getCHCBalance();
-    await updateSupply();
-  } catch (err) {
-    console.error(err);
-    alert("❌ Mint failed. See console for error.");
+  if (Web3.utils.toBN(allowance).lt(totalCost)) {
+    statusMsg.innerText = "Approving CHC for minting...";
+    await token.methods.approve(NFT_CONTRACT_ADDRESS, totalCost.toString()).send({ from: selectedAccount });
   }
+
+  statusMsg.innerText = "Minting ChillBadge NFT(s)...";
+  const nft = new web3.eth.Contract(nftAbi, NFT_CONTRACT_ADDRESS);
+  for (let i = 0; i < quantity; i++) {
+    await nft.methods.mint().send({ from: selectedAccount });
+  }
+
+  statusMsg.innerText = `✅ Successfully minted ${quantity} ChillBadge(s)!`;
+  getCHCBalance();
+  getMintedCount();
 }
 
-// ✅ Show modal, play sound
-function showSuccessModal() {
-  const modal = document.getElementById("successModal");
-  modal.style.display = "block";
+// ==== INIT ====
+connectBtn.addEventListener("click", connectWallet);
+mintBtn.addEventListener("click", mintNFTs);
 
-  const audio = new Audio("https://cdn.pixabay.com/audio/2022/03/15/audio_7a7083b373.mp3");
-  audio.volume = 0.5;
-  audio.play();
-
-  setTimeout(() => {
-    modal.style.display = "none";
-  }, 4000); // auto close after 4 sec
-}
-
-// ✅ Manual close
-function closeModal() {
-  document.getElementById("successModal").style.display = "none";
+if (web3Modal.cachedProvider) {
+  connectWallet();
 }
