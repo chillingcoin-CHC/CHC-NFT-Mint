@@ -5,4 +5,4 @@ Mint your exclusive ChillBadge NFT using ChillingCoin (CHC).
 - 🧊 Powered by the ChillBadge contract
 - 💙 Built for the CHC community
 
-Live site: [https://yourusername.github.io/CHC-NFT-Mint](https://yourusername.github.io/CHC-NFT-Mint)
+Live site: [https://chillingcoin-chc.github.io/CHC-NFT-Mint/]
