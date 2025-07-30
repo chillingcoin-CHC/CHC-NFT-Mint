@@ -12,13 +12,10 @@
 <body>
   <div class="container">
     <h1>🐧 ChillBadge NFT Mint</h1>
-
-    <!-- ChillBadge animated logo -->
-    <img src="chillbadge.gif" alt="ChillBadge Logo" style="width: 200px; display: block; margin: 20px auto;" />
-
+    <img src="chillbadge.gif" alt="ChillBadge Logo" class="logo" />
     <p><strong>Powered by ChillingCoin (CHC)</strong></p>
 
-    <button id="connectWallet">🔌 Connect Wallet</button>
+    <button id="connectWallet" class="glow-button">🔌 Connect Wallet</button>
     <p><strong>Wallet:</strong> <span id="walletAddress">Not Connected</span></p>
     <p><strong>Your CHC Balance:</strong> <span id="chcBalance">0</span> CHC</p>
     <p><strong>Minted:</strong> <span id="mintedCount">...</span> NFTs</p>
@@ -28,7 +25,7 @@
     <label for="mintAmount">How many ChillBadge NFTs?</label>
     <input type="number" id="mintAmount" placeholder="e.g. 1" min="1" max="20"/>
 
-    <button id="mintButton">🎨 Mint ChillBadge(s)</button>
+    <button id="mintButton" class="glow-button">🎨 Mint ChillBadge(s)</button>
 
     <p id="statusMessage"></p>
 
